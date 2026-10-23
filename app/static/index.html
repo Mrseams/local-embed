@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Embed</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e4e4df;
+    --accent: #2f5bea; --accent-soft: #e8eefe; --ok: #1f8a4c; --ok-soft: #e3f4ea;
+    --bad: #c4372b; --bad-soft: #fbe9e7; --run: #b7791f; --run-soft: #fbf1df;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1d1b; --ink: #ecece8; --muted: #9a9a93; --line: #2f2f2c;
+      --accent: #7c9bff; --accent-soft: #232b45; --ok: #5cc98a; --ok-soft: #1c3127;
+      --bad: #ff8a7a; --bad-soft: #3a211e; --run: #e8b45a; --run-soft: #362c1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+           padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 17px; }
+  header .meta { color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+         gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+                  padding: 16px; min-width: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+       margin: 0 0 12px; font-weight: 600; }
+
+  .drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 26px 16px;
+          text-align: center; cursor: pointer; transition: .15s; color: var(--muted); }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+  .drop strong { color: var(--ink); }
+  .drop small { display: block; margin-top: 4px; font-size: 12px; }
+  .notice { margin-top: 10px; font-size: 12.5px; }
+  .notice div { padding: 6px 10px; border-radius: 6px; margin-top: 4px; }
+  .notice .err { background: var(--bad-soft); color: var(--bad); }
+  .notice .info { background: var(--accent-soft); }
+
+  .docs { list-style: none; margin: 16px 0 0; padding: 0; }
+  .doc { border-top: 1px solid var(--line); padding: 10px 2px; display: grid;
+         grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .doc .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+               cursor: pointer; }
+  .doc .name:hover { color: var(--accent); }
+  .doc .sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .doc .sub.err { color: var(--bad); font-family: inherit; }
+  .actions { display: flex; gap: 6px; align-items: center; }
+  .badge { font-size: 11.5px; padding: 1px 8px; border-radius: 99px; font-weight: 550; }
+  .badge.indexed { background: var(--ok-soft); color: var(--ok); }
+  .badge.failed { background: var(--bad-soft); color: var(--bad); }
+  .badge.run { background: var(--run-soft); color: var(--run); }
+  .stages { grid-column: 1 / -1; display: flex; gap: 4px; }
+  .stages span { flex: 1; height: 3px; border-radius: 2px; background: var(--line); }
+  .stages span.done { background: var(--ok); }
+  .stages span.now { background: var(--run); animation: pulse 1s infinite alternate; }
+  @keyframes pulse { from { opacity: .4 } to { opacity: 1 } }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+           border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.icon { padding: 2px 8px; color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .empty { color: var(--muted); text-align: center; padding: 18px 0 6px; font-size: 13px; }
+
+  form.search { display: flex; gap: 8px; flex-wrap: wrap; }
+  form.search input[type=text] { flex: 1 1 240px; min-width: 0; font: inherit; padding: 8px 10px;
+         border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+  form.search input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  form.search select { font: inherit; border: 1px solid var(--line); border-radius: 6px;
+         background: var(--panel); color: var(--ink); padding: 0 6px; }
+  .took { color: var(--muted); font-size: 12px; margin: 10px 0 0; font-family: var(--mono); }
+  [hidden] { display: none !important; }
+  .hit { border-top: 1px solid var(--line); padding: 12px 0; }
+  .hit:first-of-type { border-top: 0; }
+  .hit .head { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+  .hit .src { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hit .src b { color: var(--ink); font-weight: 550; }
+  .score { font-family: var(--mono); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .bar { width: 56px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .hit p, .chunk p { margin: 6px 0 0; white-space: pre-wrap; font-size: 13.5px; }
+  mark { background: var(--accent-soft); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  .tabs { display: flex; gap: 2px; margin: -4px 0 14px; border-bottom: 1px solid var(--line); }
+  .tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+                 color: var(--muted); padding: 6px 12px 8px; font-weight: 550; margin-bottom: -1px; }
+  .tabs button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+  button:disabled { opacity: .55; cursor: default; }
+  .answer { margin-top: 14px; font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; }
+  .answer.streaming::after { content: "▍"; color: var(--accent); animation: pulse .6s infinite alternate; }
+  .answer.err { color: var(--bad); }
+  .cite { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 1px; border-radius: 4px;
+          background: var(--accent-soft); color: var(--accent); font: 600 11px/17px var(--mono);
+          text-align: center; vertical-align: 1px; cursor: pointer; border: 0; }
+  .sources { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .sources h4 { margin: 0 0 4px; font-size: 12px; color: var(--muted); font-weight: 600;
+                text-transform: uppercase; letter-spacing: .05em; }
+  .source { padding: 8px 10px; border-radius: 6px; margin: 0 -10px; transition: background .3s; }
+  .source.unused { opacity: .55; }
+  .source.flash { background: var(--accent-soft); }
+  .source summary { cursor: pointer; font-size: 12.5px; color: var(--muted); list-style: none;
+                    display: flex; gap: 8px; align-items: baseline; }
+  .source summary::-webkit-details-marker { display: none; }
+  .source summary b { color: var(--ink); font-weight: 550; }
+  .source summary .s { margin-left: auto; font-family: var(--mono); font-size: 11.5px; }
+  .source p { margin: 6px 0 2px; font-size: 13px; white-space: pre-wrap; }
+
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 0; background: var(--panel);
+           color: var(--ink); width: min(820px, calc(100vw - 32px)); max-height: 85vh; }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog .dh { position: sticky; top: 0; background: var(--panel); padding: 14px 18px;
+               border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+  dialog .dh h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+  dialog .dh .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  dialog .db { padding: 4px 18px 18px; }
+  .chunk { border-top: 1px solid var(--line); padding: 10px 0; }
+  .chunk:first-child { border-top: 0; }
+  .chunk .cm { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Local Embed</h1>
+  <span class="meta" id="meta">connecting…</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Documents</h2>
+    <label class="drop" id="drop">
+      <input type="file" id="file" multiple accept=".txt,.md,.markdown,.pdf,.docx" hidden>
+      <strong>Drop files here</strong> or click to browse
+      <small>TXT · Markdown · PDF · DOCX — up to 25 MB each</small>
+    </label>
+    <div class="notice" id="notice"></div>
+    <ul class="docs" id="docs"></ul>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="ask" aria-selected="true">Ask</button>
+      <button role="tab" data-tab="search" aria-selected="false">Search</button>
+    </div>
+
+    <div data-pane="ask">
+      <form class="search" id="ask">
+        <input type="text" id="question" placeholder="Ask a question — answers cite your documents" autocomplete="off">
+        <button class="primary" id="askBtn">Ask</button>
+      </form>
+      <div id="answer"><div class="empty">The answer is generated locally from the top matching chunks, with [n] citations.</div></div>
+    </div>
+
+    <div data-pane="search" hidden>
+    <form class="search" id="search">
+      <input type="text" id="q" placeholder="Ask something about your documents…" autocomplete="off">
+      <select id="k" title="Results">
+        <option>3</option><option selected>5</option><option>10</option><option>20</option>
+      </select>
+      <button class="primary">Search</button>
+    </form>
+    <div id="results"><div class="empty">Results show up here, ranked by cosine similarity.</div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="detail"></dialog>
+
+<script>
+const STAGES = ["queued", "extracting", "cleaning", "chunking", "embedding", "indexed"];
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+let pollTimer = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || res.statusText);
+  return body;
+}
+
+async function loadHealth() {
+  try {
+    const h = await api("/api/health");
+    const l = h.llm;
+    const llm = l.state === "ready" ? l.model
+      : l.state === "pulling" ? `${l.model} downloading ${Math.round((l.progress || 0) * 100)}%`
+      : `${l.model} ${l.state}`;
+    $("#meta").textContent = `${h.model.split("/").pop()} · ${h.dim}d · ${h.indexed} docs · ${h.chunks} chunks · chunk ${h.chunk_tokens}/${h.chunk_overlap} · LLM ${llm}`;
+    clearTimeout(healthTimer);
+    if (l.state !== "ready" && l.state !== "error") healthTimer = setTimeout(loadHealth, 2000);
+  } catch { $("#meta").textContent = "server unreachable"; }
+}
+let healthTimer = null;
+
+document.querySelectorAll("[data-tab]").forEach((tab) => tab.addEventListener("click", () => {
+  document.querySelectorAll("[data-tab]").forEach((t) => t.setAttribute("aria-selected", t === tab));
+  document.querySelectorAll("[data-pane]").forEach((p) => p.hidden = p.dataset.pane !== tab.dataset.tab);
+  (tab.dataset.tab === "ask" ? $("#question") : $("#q")).focus();
+}));
+
+function renderAnswer(text, nSources) {
+  // Escape first, then turn [n] markers that point at a real source into buttons.
+  return esc(text).replace(/\[(\d+)\]/g, (m, n) =>
+    +n >= 1 && +n <= nSources ? `<button class="cite" data-cite="${n}">${n}</button>` : m);
+}
+
+function renderSources(sources, used) {
+  if (!sources.length) return "";
+  return `<div class="sources"><h4>Sources</h4>` + sources.map((s) => `
+    <details class="source ${used.size && !used.has(s.n) ? "unused" : ""}" id="src-${s.n}">
+      <summary><span class="cite">${s.n}</span><span><b>${esc(s.filename)}</b>${s.page ? ` · p.${s.page}` : ""}${s.heading ? ` · ${esc(s.heading)}` : ""}</span>
+      <span class="s">${s.score.toFixed(3)}</span></summary>
+      <p>${esc(s.text)}</p></details>`).join("") + "</div>";
+}
+
+$("#answer").addEventListener("click", (e) => {
+  const c = e.target.closest("button.cite[data-cite]");
+  if (!c) return;
+  const el = $(`#src-${c.dataset.cite}`);
+  el.open = true;
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 900);
+});
+
+$("#ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = $("#question").value.trim();
+  if (!question) return;
+  const btn = $("#askBtn");
+  btn.disabled = true;
+  $("#answer").innerHTML = `<div class="empty">Retrieving…</div>`;
+  let sources = [], text = "", meta = "";
+  const paint = (streaming) => {
+    const used = new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => +m[1]));
+    $("#answer").innerHTML = `${meta ? `<p class="took">${meta}</p>` : ""}
+      <div class="answer ${streaming ? "streaming" : ""}">${renderAnswer(text, sources.length)}</div>
+      ${renderSources(sources, streaming ? new Set() : used)}`;
+  };
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const d = body.detail;
+      throw new Error(d?.llm?.state === "pulling"
+        ? `The language model is still downloading (${Math.round((d.llm.progress || 0) * 100)}%). Try again shortly.`
+        : d?.message || d || res.statusText);
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === "sources") { sources = ev.sources; meta = `${sources.length} sources · retrieval ${ev.retrieval_ms} ms`; }
+        else if (ev.type === "token") text += ev.text;
+        else if (ev.type === "error") throw new Error(ev.message);
+        else if (ev.type === "done") meta += ` · total ${(ev.took_ms / 1000).toFixed(1)} s · ${ev.model}`;
+      }
+      paint(true);
+    }
+    text = text.trim();
+    paint(false);
+  } catch (err) {
+    $("#answer").innerHTML = `<div class="answer err">${esc(err.message)}</div>` + renderSources(sources, new Set());
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function stageBar(status) {
+  if (status === "failed") return "";
+  const at = STAGES.indexOf(status);
+  return `<div class="stages" title="${STAGES.join(" → ")}">` + STAGES.slice(1).map((_, i) =>
+    `<span class="${i + 1 < at || status === "indexed" ? "done" : i + 1 === at ? "now" : ""}"></span>`).join("") + "</div>";
+}
+
+function docRow(d) {
+  const running = !["indexed", "failed"].includes(d.status);
+  const cls = running ? "run" : d.status;
+  let sub = `${fmtBytes(d.size_bytes)}`;
+  if (d.status === "indexed") {
+    const total = Object.values(d.timings || {}).reduce((a, b) => a + b, 0);
+    sub += ` · ${d.n_chunks} chunks · ${d.n_chars.toLocaleString()} chars · ${total.toFixed(2)}s`;
+  }
+  return `<li class="doc">
+    <span class="name" data-open="${d.id}" title="${esc(d.filename)}">${esc(d.filename)}</span>
+    <span class="actions"><span class="badge ${cls}">${d.status}</span>
+      ${running ? "" : `<button class="icon" data-del="${d.id}" title="Delete">✕</button>`}</span>
+    ${stageBar(d.status)}
+    <span class="sub ${d.status === "failed" ? "err" : ""}">${d.status === "failed" ? esc(d.error) : sub}</span>
+  </li>`;
+}
+
+async function loadDocs() {
+  const { documents } = await api("/api/documents");
+  $("#docs").innerHTML = documents.length ? documents.map(docRow).join("")
+    : `<li class="empty">No documents yet.</li>`;
+  const busy = documents.some((d) => !["indexed", "failed"].includes(d.status));
+  clearTimeout(pollTimer);
+  if (busy) pollTimer = setTimeout(refresh, 800);
+}
+
+const refresh = () => Promise.all([loadDocs(), loadHealth()]);
+
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+  $("#notice").innerHTML = `<div class="info">Uploading ${files.length} file(s)…</div>`;
+  try {
+    const { documents } = await api("/api/documents", { method: "POST", body: fd });
+    $("#notice").innerHTML = documents.filter((d) => d.error || d.duplicate).map((d) => d.error
+      ? `<div class="err">${esc(d.filename)}: ${esc(d.error)}</div>`
+      : `<div class="info">${esc(d.filename)} is already indexed (same content), skipped.</div>`).join("");
+  } catch (e) {
+    $("#notice").innerHTML = `<div class="err">Upload failed: ${esc(e.message)}</div>`;
+  }
+  refresh();
+}
+
+const drop = $("#drop");
+$("#file").addEventListener("change", (e) => { upload([...e.target.files]); e.target.value = ""; });
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => upload([...e.dataTransfer.files]));
+
+$("#docs").addEventListener("click", async (e) => {
+  const del = e.target.closest("[data-del]");
+  const open = e.target.closest("[data-open]");
+  if (del) {
+    if (!confirm("Delete this document and its embeddings?")) return;
+    await api(`/api/documents/${del.dataset.del}`, { method: "DELETE" }).catch((err) => alert(err.message));
+    refresh();
+  } else if (open) {
+    showDetail(open.dataset.open);
+  }
+});
+
+async function showDetail(id) {
+  const d = await api(`/api/documents/${id}`);
+  const t = d.timings ? Object.entries(d.timings).map(([k, v]) => `${k} ${v}s`).join(" · ") : "";
+  $("#detail").innerHTML = `
+    <div class="dh"><div><h3>${esc(d.filename)}</h3>
+      <div class="meta">${d.status} · ${d.n_sections} sections · ${d.n_chunks} chunks${d.model ? " · " + esc(d.model) : ""}<br>${t}</div></div>
+      <button onclick="this.closest('dialog').close()">Close</button></div>
+    <div class="db">${d.chunks.map((c) => `<div class="chunk">
+      <div class="cm">#${c.idx} · ${c.tokens} tok${c.page ? ` · p.${c.page}` : ""}${c.heading ? ` · ${esc(c.heading)}` : ""}</div>
+      <p>${esc(c.text)}</p></div>`).join("") || `<div class="empty">${esc(d.error || "No chunks.")}</div>`}</div>`;
+  $("#detail").showModal();
+}
+
+function highlight(text, query) {
+  const words = [...new Set(query.toLowerCase().match(/\w{3,}/g) || [])];
+  let html = esc(text);
+  if (!words.length) return html;
+  const re = new RegExp(`\\b(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\w*`, "gi");
+  return html.replace(re, "<mark>$&</mark>");
+}
+
+$("#search").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const query = $("#q").value.trim();
+  if (!query) return;
+  $("#results").innerHTML = `<div class="empty">Searching…</div>`;
+  try {
+    const r = await api("/api/search", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, k: +$("#k").value }),
+    });
+    $("#results").innerHTML = `<p class="took">${r.results.length} results · ${r.took_ms} ms</p>` +
+      (r.results.map((h) => `<div class="hit">
+        <div class="head"><span class="src"><b>${esc(h.filename)}</b>${h.page ? ` · p.${h.page}` : ""}${h.heading ? ` · ${esc(h.heading)}` : ""} · #${h.idx}</span>
+        <span class="score"><span class="bar"><i style="width:${Math.max(0, h.score) * 100}%"></i></span>${h.score.toFixed(3)}</span></div>
+        <p>${highlight(h.text, query)}</p></div>`).join("") || `<div class="empty">Nothing indexed yet.</div>`);
+  } catch (err) {
+    $("#results").innerHTML = `<div class="notice"><div class="err">${esc(err.message)}</div></div>`;
+  }
+});
+
+refresh();
+</script>
+</body>
+</html>

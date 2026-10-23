@@ -1,0 +1,30 @@
+services:
+  embed:
+    build: .
+    image: local-embed:latest
+    ports:
+      - "8077:8000"
+    volumes:
+      - embed-data:/data
+    environment:
+      CHUNK_TOKENS: 200
+      CHUNK_OVERLAP: 40
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  # Local LLM for /api/ask. The embed service pulls OLLAMA_MODEL on first start
+  # (~2 GB for llama3.2:3b) into the ollama-models volume.
+  ollama:
+    image: ollama/ollama:0.6.5
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+    restart: unless-stopped
+
+volumes:
+  embed-data:
+  ollama-models:
